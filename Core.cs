@@ -5,7 +5,7 @@ using GHPC.World;
 using GHPC.Equipment.Optics;
 using GHPC.State;
 
-[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "0.1.0", "oilpeanut", null)]
+[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "1.0.0", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace PreilluminateReticles {
