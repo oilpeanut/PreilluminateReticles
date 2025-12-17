@@ -4,8 +4,9 @@ using Reticle;
 using GHPC.World;
 using GHPC.Equipment.Optics;
 using GHPC.State;
+using GHPC.Player;
 
-[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "0.0.2", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
+[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "0.0.3", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace PreilluminateReticles {
@@ -15,10 +16,10 @@ namespace PreilluminateReticles {
     }
 
     public override void OnSceneWasLoaded(int buildIndex, string sceneName) {
-      //makeing suring game is in a scene that has optics to illuminate
+      //makeing sure game is in a scene that has optics to illuminate
       if(sceneName.StartsWith("LOADER_") || sceneName.EndsWith("_Scene"))
         return;
-      StateController.RunOrDefer(GameState.MissionUnitsLoaded, new GameStateEventHandler(FindAndIlluminate), GameStatePriority.Lowest);
+      StateController.RunOrDefer(GameState.PlayerReady, new GameStateEventHandler(FindAndIlluminate), GameStatePriority.Lowest);
     }
 
     public IEnumerator<bool> FindAndIlluminate(GameState gs) {
@@ -26,13 +27,12 @@ namespace PreilluminateReticles {
       List<Unit> vehiclesInScene;
       UsableOptic[] parentOptics;
       ReticleMesh[] childReticleMeshes;
+      Faction playerFaction;
       uint illumCount = 0;
-      //obtains list of vehicles
-      vehiclesInScene = [.. SceneUnitsManager.Instance.AllUnitsInScene];
+      //get list of vehicles in player's faction
+      playerFaction = PlayerInput.Instance.CurrentPlayerUnit.Allegiance;
+      vehiclesInScene = SceneUnitsManager.AllUnitsByFaction[(int)playerFaction];
       //iterates over the vehicles to find usable optics
-
-      //todo: set to only illuminate player faction
-
       foreach (Unit obj in vehiclesInScene) {
         parentOptics = obj.gameObject.GetComponentsInChildren<UsableOptic>(true);
         if(parentOptics != null) { 
