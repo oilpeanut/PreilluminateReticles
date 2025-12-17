@@ -5,7 +5,7 @@ using GHPC.World;
 using GHPC.Equipment.Optics;
 using GHPC.State;
 
-[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "0.0.1", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
+[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "0.0.2", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace PreilluminateReticles {
@@ -25,11 +25,14 @@ namespace PreilluminateReticles {
       //initializing stuff
       List<Unit> vehiclesInScene;
       UsableOptic[] parentOptics;
-      ReticleMesh childReticleMesh;
+      ReticleMesh[] childReticleMeshes;
       uint illumCount = 0;
-      //digging through game object hierachy in the scene for a list of playable vehicles
+      //obtains list of vehicles
       vehiclesInScene = [.. SceneUnitsManager.Instance.AllUnitsInScene];
       //iterates over the vehicles to find usable optics
+
+      //todo: set to only illuminate player faction
+
       foreach (Unit obj in vehiclesInScene) {
         parentOptics = obj.gameObject.GetComponentsInChildren<UsableOptic>(true);
         if(parentOptics != null) { 
@@ -37,23 +40,25 @@ namespace PreilluminateReticles {
             //make sure the found optic is day sight
             if(optic.name == "FLIR" || optic.name == "NVS" || optic.name.Contains("night", StringComparison.CurrentCultureIgnoreCase))
               continue;
-            childReticleMesh = optic.reticleMesh;
+            childReticleMeshes = optic.gameObject.GetComponentsInChildren<ReticleMesh>(true);
             //checks reticle illumination state and toggles accordingly
-            if(!childReticleMesh.disableIllumination && childReticleMesh.lights[0].value == 0) {
-              if(EnableIllumination(optic))
-                illumCount++;
+            foreach(ReticleMesh reticleMesh in childReticleMeshes) {
+              if(!reticleMesh.disableIllumination && reticleMesh.lights[0].value == 0) {
+                if(EnableIllumination(reticleMesh))
+                  illumCount++;
+              }
             }
           }
         }
       }
-      LoggerInstance.Msg($"Illuminated {illumCount} optics");
+      LoggerInstance.Msg($"Illuminated {illumCount} reticles");
       yield return true;
     }
 
-    public bool EnableIllumination(UsableOptic optic) {
-      if(optic.reticleMesh != null && !optic.reticleMesh.disableIllumination) {
+    public bool EnableIllumination(ReticleMesh rm) {
+      if(rm != null && !rm.disableIllumination) {
         ReticleTree.Light.Type type = ReticleTree.Light.Type.NightIllumination;
-        optic.reticleMesh.SetLight(type, 1f);
+        rm.SetLight(type, 1f);
         return true;
       }
       return false;
