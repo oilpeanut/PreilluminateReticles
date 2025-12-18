@@ -6,7 +6,7 @@ using GHPC.Equipment.Optics;
 using GHPC.State;
 using GHPC.Player;
 
-[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "0.0.4", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
+[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "1.0.0", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace PreilluminateReticles {
@@ -17,7 +17,6 @@ namespace PreilluminateReticles {
 
     public override void OnSceneWasLoaded(int buildIndex, string sceneName) {
       //makeing sure game is in a scene that has optics to illuminate
-      LoggerInstance.Msg($"Current scene: {sceneName}");
       if(sceneName.StartsWith("LOADER_") || sceneName.EndsWith("_Scene", true, null))
         return;
       StateController.RunOrDefer(GameState.PlayerReady, new GameStateEventHandler(FindAndIlluminate), GameStatePriority.Lowest);
@@ -25,17 +24,17 @@ namespace PreilluminateReticles {
 
     public IEnumerator<bool> FindAndIlluminate(GameState gs) {
       //initializing stuff
-      List<Unit> vehiclesInScene;
+      List<Unit> vehiclesInTeam;
       UsableOptic[] parentOptics;
       ReticleMesh[] childReticleMeshes;
       Faction playerFaction;
       uint illumCount = 0;
       //get list of vehicles in player's faction
       playerFaction = PlayerInput.Instance.CurrentPlayerUnit.Allegiance;
-      vehiclesInScene = SceneUnitsManager.AllUnitsByFaction[(int)playerFaction];
+      vehiclesInTeam = SceneUnitsManager.AllUnitsByFaction[(int)playerFaction];
       //iterates over the vehicles to find usable optics
-      foreach (Unit obj in vehiclesInScene) {
-        parentOptics = obj.gameObject.GetComponentsInChildren<UsableOptic>(true);
+      foreach (Unit vic in vehiclesInTeam) {
+        parentOptics = vic.gameObject.GetComponentsInChildren<UsableOptic>(true);
         if(parentOptics != null) { 
           foreach(UsableOptic optic in parentOptics) {
             //make sure the found optic is day sight
