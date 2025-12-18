@@ -6,7 +6,7 @@ using GHPC.Equipment.Optics;
 using GHPC.State;
 using GHPC.Player;
 
-[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "0.0.3", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
+[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "0.0.4", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace PreilluminateReticles {
@@ -17,7 +17,8 @@ namespace PreilluminateReticles {
 
     public override void OnSceneWasLoaded(int buildIndex, string sceneName) {
       //makeing sure game is in a scene that has optics to illuminate
-      if(sceneName.StartsWith("LOADER_") || sceneName.EndsWith("_Scene"))
+      LoggerInstance.Msg($"Current scene: {sceneName}");
+      if(sceneName.StartsWith("LOADER_") || sceneName.EndsWith("_Scene", true, null))
         return;
       StateController.RunOrDefer(GameState.PlayerReady, new GameStateEventHandler(FindAndIlluminate), GameStatePriority.Lowest);
     }
