@@ -6,7 +6,7 @@ using GHPC.Equipment.Optics;
 using GHPC.State;
 using GHPC.Player;
 
-[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "1.0.1-testing", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
+[assembly: MelonInfo(typeof(PreilluminateReticles.Core), "PreilluminateReticles", "1.0.1", "oilpeanut", "https://github.com/oilpeanut/PreilluminateReticles/releases/latest")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace PreilluminateReticles {
@@ -17,7 +17,6 @@ namespace PreilluminateReticles {
 
     public override void OnSceneWasLoaded(int buildIndex, string sceneName) {
       //makeing sure game is in a scene that has optics to illuminate
-      LoggerInstance.Msg($"Current scene: {sceneName}");
       if(sceneName.StartsWith("LOADER_") || (Char.IsLower(sceneName, 1) && !sceneName.StartsWith("Flex_")/*campaign missions tend to be prefixed with this*/))
         return;
       StateController.RunOrDefer(GameState.PlayerReady, new GameStateEventHandler(FindAndIlluminate), GameStatePriority.Lowest);
@@ -48,7 +47,6 @@ namespace PreilluminateReticles {
               reticleLight = reticleMesh.lights[0];
               //checks that the reticle can and hasn't been illuminated
               if(!reticleMesh.disableIllumination && reticleLight.light.type == ReticleTree.Light.Type.NightIllumination && reticleLight.value == 0) {
-                LoggerInstance.Msg($"\nVehicle: {vic.name}\nOptics: {optic.name}\nReticle: {reticleMesh.name}");
                 if(EnableIllumination(reticleMesh))
                   illumCount++;
               }
