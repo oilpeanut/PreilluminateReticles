@@ -28,6 +28,7 @@ namespace PreilluminateReticles {
       List<Unit> vehiclesInTeam;
       UsableOptic[] parentOptics;
       ReticleMesh[] childReticleMeshes;
+      ReticleEditor.LightState reticleLight;
       Faction playerFaction;
       uint illumCount = 0;
       //get list of vehicles in player's faction
@@ -42,10 +43,12 @@ namespace PreilluminateReticles {
             if(optic.name == "FLIR" || optic.name == "NVS" || optic.name.Contains("night", StringComparison.CurrentCultureIgnoreCase))
               continue;
             childReticleMeshes = optic.gameObject.GetComponentsInChildren<ReticleMesh>(true);
-            //checks reticle illumination state and toggles accordingly
+            //going through reticle meshes in the optics
             foreach(ReticleMesh reticleMesh in childReticleMeshes) {
-              if(!reticleMesh.disableIllumination && reticleMesh.lights[0].value == 0) {
-                LoggerInstance.Msg($"Parent optic: {optic.name} on {vic.name}");
+              reticleLight = reticleMesh.lights[0];
+              //checks that the reticle can and hasn't been illuminated
+              if(!reticleMesh.disableIllumination && reticleLight.light.type == ReticleTree.Light.Type.NightIllumination && reticleLight.value == 0) {
+                LoggerInstance.Msg($"\nVehicle: {vic.name}\nOptics: {optic.name}\nReticle: {reticleMesh.name}");
                 if(EnableIllumination(reticleMesh))
                   illumCount++;
               }
