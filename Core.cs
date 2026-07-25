@@ -7,6 +7,7 @@ using GHPC.State;
 using GHPC.Player;
 using GHPC.Camera;
 using System.Runtime.CompilerServices;
+using UnityEngine;
 
 [assembly: MelonInfo(
   typeof(PreilluminateReticles.Core),
@@ -44,7 +45,32 @@ namespace PreilluminateReticles {
 
     public override void OnUpdate() {
       base.OnUpdate();
-      //UsableOptic activeOptic = CameraSlot.ActiveInstance.PairedOptic;
+      UsableOptic activeOptic = CameraSlot.ActiveInstance?.PairedOptic;
+      ReticleMesh[] reticleMeshes;
+      float addend, brightness;
+
+      if(activeOptic == null)
+        return;
+      if(Input.GetKeyDown(KeyCode.UpArrow))
+        addend = 0.5f;
+      else if(Input.GetKeyDown(KeyCode.DownArrow))
+        addend = -0.5f;
+      else
+        return;
+
+      reticleMeshLookup.TryGetValue(activeOptic, out reticleMeshes);
+      if(reticleMeshes == null)
+        return;
+
+      foreach(ReticleMesh reticleMesh in reticleMeshes) {
+        reticleMesh.GetLight(ReticleTree.Light.Type.NightIllumination, out brightness);
+        if(brightness == float.NaN)
+          continue;
+        brightness += addend;
+        if(brightness < 0)
+          brightness = 0;
+        reticleMesh.SetLight(ReticleTree.Light.Type.NightIllumination, brightness);
+      }
     }
     
     public IEnumerator<bool> FindAndIlluminate(GameState gs) {
