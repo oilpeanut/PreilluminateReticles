@@ -5,6 +5,8 @@ using GHPC.World;
 using GHPC.Equipment.Optics;
 using GHPC.State;
 using GHPC.Player;
+using GHPC.Camera;
+using System.Runtime.CompilerServices;
 
 [assembly: MelonInfo(
   typeof(PreilluminateReticles.Core),
@@ -17,6 +19,8 @@ using GHPC.Player;
 
 namespace PreilluminateReticles {
   public class Core : MelonMod {
+    private ConditionalWeakTable<UsableOptic, ReticleMesh[]> reticleMeshLookup = new();
+
     public override void OnInitializeMelon() {
       LoggerInstance.Msg("Initialized.");
     }
@@ -29,6 +33,8 @@ namespace PreilluminateReticles {
         /*campaign missions tend to be prefixed with Flex_*/
       ) return;
 
+      reticleMeshLookup.Clear();
+
       StateController.RunOrDefer(
         GameState.PlayerReady,
         new GameStateEventHandler(FindAndIlluminate),
@@ -36,6 +42,11 @@ namespace PreilluminateReticles {
       );
     }
 
+    public override void OnUpdate() {
+      base.OnUpdate();
+      //UsableOptic activeOptic = CameraSlot.ActiveInstance.PairedOptic;
+    }
+    
     public IEnumerator<bool> FindAndIlluminate(GameState gs) {
       List<Unit> vehiclesInTeam;
       UsableOptic[] parentOptics;
@@ -53,13 +64,16 @@ namespace PreilluminateReticles {
         if(parentOptics != null) { 
           foreach(UsableOptic optic in parentOptics) {
 
+            //caching meshes for later use
+            childReticleMeshes = optic.gameObject.GetComponentsInChildren<ReticleMesh>(true);
+            reticleMeshLookup.Add(optic, childReticleMeshes);
+
             //make sure the found optic is day sight
             if(
               optic.name == "FLIR" ||
               optic.name == "NVS" ||
               optic.name.Contains("night", StringComparison.CurrentCultureIgnoreCase)
             ) continue;
-            childReticleMeshes = optic.gameObject.GetComponentsInChildren<ReticleMesh>(true);
 
             //illuminate reticle meshes in the optics
             foreach(ReticleMesh reticleMesh in childReticleMeshes) {
