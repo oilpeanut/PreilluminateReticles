@@ -25,6 +25,7 @@ namespace PreilluminateReticles {
     private readonly Stopwatch stopwatch = new();
     private readonly Dictionary<int, ReticleMesh[]> reticleMeshLookup = new();
     private readonly RLType[] handledLightTypes = [RLType.NightIllumination, RLType.Powered];
+    private float brightnessStep = 0.1f;
 
     public override void OnInitializeMelon() {
       LoggerInstance.Msg("Initialized.");
@@ -54,9 +55,9 @@ namespace PreilluminateReticles {
       float addend, brightness;
 
       if(Input.GetKeyDown(KeyCode.UpArrow))
-        addend = 0.2f;
+        addend = brightnessStep;
       else if(Input.GetKeyDown(KeyCode.DownArrow))
-        addend = -0.2f;
+        addend = - brightnessStep;
       else
         return;
 
@@ -77,7 +78,7 @@ namespace PreilluminateReticles {
           brightness += addend;
           if(brightness < 0)
             brightness = 0;
-          reticleMesh.SetLight(lightType, brightness);
+          reticleMesh.SetLight(lightType, neutralizeNightBrightness(brightness, reticleMesh));
         }
       }
     }
@@ -126,6 +127,12 @@ namespace PreilluminateReticles {
       swStop();
       LoggerInstance.Msg($"Illuminated {illumCount} reticles.");
       yield return true;
+    }
+
+    private float neutralizeNightBrightness(float brightness, ReticleMesh mesh) {
+      if(CelestialSky.IsCurrentlyDaytime())
+        return brightness;
+      return brightness / mesh.nightBrightness;
     }
 
     [Conditional("DEBUG")]
