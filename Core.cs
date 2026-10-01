@@ -8,6 +8,7 @@ using GHPC.State;
 using GHPC.Player;
 using GHPC.Camera;
 using System.Diagnostics;
+using GHPC.Utility;
 
 [assembly: MelonInfo(
   typeof(PreilluminateReticles.Core),
@@ -24,7 +25,11 @@ namespace PreilluminateReticles {
   public class Core : MelonMod {
     private readonly Stopwatch stopwatch = new();
     private readonly Dictionary<int, ReticleMesh[]> reticleMeshLookup = new();
+    //for preserving reticle brightnesses across vanilla game modification
+    //reticle instanceID => [{index of handledLightType => brightness}, ...]
+    private readonly Dictionary<int, float[]> reticleStates = new();
     private readonly RLType[] handledLightTypes = [RLType.NightIllumination, RLType.Powered];
+    private const float ILLUM_OFF_THRESHOLD = 0.0001f;
     private float brightnessStep = 0.1f;
 
     public override void OnInitializeMelon() {
@@ -40,20 +45,25 @@ namespace PreilluminateReticles {
       ) return;
 
       reticleMeshLookup.Clear();
+      reticleStates.Clear();
 
       StateController.RunOrDefer(
         GameState.PlayerReady,
         new GameStateEventHandler(FindAndIlluminate),
         GameStatePriority.Lowest
       );
+      CameraSlot.ActiveInstanceChanged += tryRestoreBrightness;
+    }
+
+    public override void OnSceneWasUnloaded(int buildIndex, string sceneName) {
+      base.OnSceneWasUnloaded(buildIndex, sceneName);
+      CameraSlot.ActiveInstanceChanged -= tryRestoreBrightness;
     }
 
     public override void OnUpdate() {
       base.OnUpdate();
-      UsableOptic activeOptic;
-      ReticleMesh[] reticleMeshes;
-      float addend, brightness;
 
+      float addend;
       if(Input.GetKeyDown(KeyCode.UpArrow))
         addend = brightnessStep;
       else if(Input.GetKeyDown(KeyCode.DownArrow))
@@ -61,28 +71,107 @@ namespace PreilluminateReticles {
       else
         return;
 
-      activeOptic = CameraSlot.ActiveInstance?.PairedOptic;
-      if(activeOptic == null)
-        return;
-
-      reticleMeshes = reticleMeshLookup[activeOptic.GetInstanceID()];
+      ReticleMesh[] reticleMeshes = getActiveReticleMeshes();
       if(reticleMeshes == null)
         return;
 
+      float[] brightnesses;
       foreach(ReticleMesh reticleMesh in reticleMeshes) {
-        foreach(RLType lightType in handledLightTypes) {
-          reticleMesh.GetLight(lightType, out brightness);
-          if(brightness == float.NaN)
+        retrieveReticleBrightnesses(reticleMesh, out brightnesses);
+        for(int i = 0; i < brightnesses.Length; i++) {
+          if(float.IsNaN(brightnesses[i]))
             continue;
+          brightnesses[i] += addend;
+          if(brightnesses[i] < 0)
+            brightnesses[i] = 0;
+        }
+        storeReticleBrightnesses(reticleMesh, brightnesses);
+        //store before apply to prevent storing weird deciamls from setLight()
+        applyReticleBrightnesses(reticleMesh, brightnesses);
+      }
+    }
 
-          brightness += addend;
-          if(brightness < 0)
-            brightness = 0;
-          reticleMesh.SetLight(lightType, neutralizeNightBrightness(brightness, reticleMesh));
+    public override void OnLateUpdate() {
+      base.OnLateUpdate();
+      float[] brightnesses;
+      float gameSetBrightness;
+      ReticleMesh[] activeReticles;
+
+      if(InputUtil.MainPlayer?.GetButtonDown("Reticle Illumination") ?? false) {
+        activeReticles = getActiveReticleMeshes();
+        if(activeReticles == null)
+          return;
+
+        foreach(ReticleMesh rm in activeReticles) {
+          //only apply stored brightness when illum on
+          rm.GetLight(RLType.NightIllumination, out gameSetBrightness);
+          LoggerInstance.Msg($"getLight: {gameSetBrightness}");
+          if(retrieveReticleBrightnesses(rm, out brightnesses) && gameSetBrightness >= ILLUM_OFF_THRESHOLD) {
+            applyReticleBrightnesses(rm, brightnesses);
+            LoggerInstance.Msg($"Restored brightness: {brightnesses[0]}");
+          }
         }
       }
     }
-    
+
+    private ReticleMesh[] getActiveReticleMeshes() {
+      UsableOptic activeOptic = CameraSlot.ActiveInstance?.PairedOptic;
+      ReticleMesh[] rms = null;
+      if(activeOptic == null)
+        return null;
+      reticleMeshLookup.TryGetValue(activeOptic.GetInstanceID(), out rms);
+      return rms;
+    }
+
+    private bool retrieveReticleBrightnesses(ReticleMesh rm, out float[] brightnesses, bool doGetLight = true) {
+      bool hasRecord = reticleStates.TryGetValue(rm.GetInstanceID(), out brightnesses);
+      if(!hasRecord && doGetLight) {
+        brightnesses = new float[handledLightTypes.Length];
+        for(int i = 0; i < handledLightTypes.Length; i++)
+          rm.GetLight(handledLightTypes[i], out brightnesses[i]);
+      }
+      return hasRecord;
+    }
+
+    private void applyReticleBrightnesses(ReticleMesh rm, float[] brightnesses) {
+      for(int i = 0; i < handledLightTypes.Length; i++) {
+        if(brightnesses[i] == float.NaN)
+          continue;
+        rm.SetLight(handledLightTypes[i], neutralizeNightBrightness(brightnesses[i], rm));
+      }
+    }
+
+    private void storeReticleBrightnesses(ReticleMesh rm, float[] brightnesses) {
+      //remember last night illum brightness
+      if(brightnesses[0] >= ILLUM_OFF_THRESHOLD) {
+        reticleStates[rm.GetInstanceID()] = brightnesses;
+        LoggerInstance.Msg($"Stored: {brightnesses[0]}");
+      }
+      LoggerInstance.Msg(reticleStates.ToString());
+    }
+
+    //setLight() brightness argument is multiplied by nightBrightness at night
+    private float neutralizeNightBrightness(float brightness, ReticleMesh mesh) {
+      if(CelestialSky.IsCurrentlyDaytime())
+        return brightness;
+      brightness /= mesh.nightBrightness;
+      return brightness >= ILLUM_OFF_THRESHOLD ? brightness : 0;
+    }
+
+    private void tryRestoreBrightness(CameraSlot cs) {
+      float[] brightnesses;
+      bool reticleBrightnessChanged;
+      ReticleMesh[] rms = getActiveReticleMeshes();
+      if(rms == null)
+        return;
+      foreach(ReticleMesh rm in rms) {
+        reticleBrightnessChanged = retrieveReticleBrightnesses(rm, out brightnesses, false);
+        if(!reticleBrightnessChanged)
+          continue;
+        applyReticleBrightnesses(rm, brightnesses);
+      }
+    }
+
     public IEnumerator<bool> FindAndIlluminate(GameState gs) {
       swStart();
       List<Unit> vehiclesInTeam;
@@ -127,12 +216,6 @@ namespace PreilluminateReticles {
       swStop();
       LoggerInstance.Msg($"Illuminated {illumCount} reticles.");
       yield return true;
-    }
-
-    private float neutralizeNightBrightness(float brightness, ReticleMesh mesh) {
-      if(CelestialSky.IsCurrentlyDaytime())
-        return brightness;
-      return brightness / mesh.nightBrightness;
     }
 
     [Conditional("DEBUG")]
