@@ -78,15 +78,16 @@ namespace PreilluminateReticles {
       float[] brightnesses;
       foreach(ReticleMesh reticleMesh in reticleMeshes) {
         retrieveReticleBrightnesses(reticleMesh, out brightnesses);
+        //clone so it doesn't write 0 brightness directly to reticleStates without checks
+        brightnesses = (float[])brightnesses.Clone();
         for(int i = 0; i < brightnesses.Length; i++) {
           if(float.IsNaN(brightnesses[i]))
             continue;
           brightnesses[i] += addend;
-          if(brightnesses[i] < 0)
+          if(brightnesses[i] < ILLUM_OFF_THRESHOLD)
             brightnesses[i] = 0;
         }
         storeReticleBrightnesses(reticleMesh, brightnesses);
-        //store before apply to prevent storing weird deciamls from setLight()
         applyReticleBrightnesses(reticleMesh, brightnesses);
       }
     }
@@ -103,13 +104,10 @@ namespace PreilluminateReticles {
           return;
 
         foreach(ReticleMesh rm in activeReticles) {
-          //only apply stored brightness when illum on
+          //only apply stored brightness when game turns illum on
           rm.GetLight(RLType.NightIllumination, out gameSetBrightness);
-          LoggerInstance.Msg($"getLight: {gameSetBrightness}");
-          if(retrieveReticleBrightnesses(rm, out brightnesses) && gameSetBrightness >= ILLUM_OFF_THRESHOLD) {
+          if(retrieveReticleBrightnesses(rm, out brightnesses) && gameSetBrightness >= ILLUM_OFF_THRESHOLD)
             applyReticleBrightnesses(rm, brightnesses);
-            LoggerInstance.Msg($"Restored brightness: {brightnesses[0]}");
-          }
         }
       }
     }
@@ -143,11 +141,8 @@ namespace PreilluminateReticles {
 
     private void storeReticleBrightnesses(ReticleMesh rm, float[] brightnesses) {
       //remember last night illum brightness
-      if(brightnesses[0] >= ILLUM_OFF_THRESHOLD) {
+      if(brightnesses[0] >= ILLUM_OFF_THRESHOLD)
         reticleStates[rm.GetInstanceID()] = brightnesses;
-        LoggerInstance.Msg($"Stored: {brightnesses[0]}");
-      }
-      LoggerInstance.Msg(reticleStates.ToString());
     }
 
     //setLight() brightness argument is multiplied by nightBrightness at night
