@@ -84,8 +84,12 @@ namespace PreilluminateReticles {
           if(float.IsNaN(brightnesses[i]))
             continue;
           brightnesses[i] += addend;
-          if(brightnesses[i] < ILLUM_OFF_THRESHOLD)
+          if(brightnesses[i] < ILLUM_OFF_THRESHOLD) {
             brightnesses[i] = 0;
+            //keeps powered reticles on
+            if(handledLightTypes[i] == RLType.Powered)
+              brightnesses[i] -= addend;
+          }
         }
         storeReticleBrightnesses(reticleMesh, brightnesses);
         applyReticleBrightnesses(reticleMesh, brightnesses);
@@ -140,8 +144,15 @@ namespace PreilluminateReticles {
     }
 
     private void storeReticleBrightnesses(ReticleMesh rm, float[] brightnesses) {
+      bool saveBrightness = false;
       //remember last night illum brightness
-      if(brightnesses[0] >= ILLUM_OFF_THRESHOLD)
+      foreach(float brightness in brightnesses) {
+        if(brightness >= ILLUM_OFF_THRESHOLD) {
+          saveBrightness = true;
+          break;
+        }
+      }
+      if(saveBrightness)
         reticleStates[rm.GetInstanceID()] = brightnesses;
     }
 
