@@ -9,7 +9,6 @@ using GHPC.State;
 using GHPC.Player;
 using GHPC.Camera;
 using GHPC.Utility;
-using GHPC.UI.Hud;
 using System.Text;
 #nullable enable
 
@@ -27,6 +26,7 @@ namespace PreilluminateReticles {
 
   public class Core : MelonMod {
     private readonly Stopwatch stopwatch = new();
+    private readonly StringBuilder brightnessHUDSb = new(32);
     private readonly Dictionary<int, ReticleMesh[]> reticleMeshLookup = new();
     //for preserving reticle brightnesses across vanilla game modification
     //reticle instanceID => [{index of handledLightType => brightness}, ...]
@@ -102,7 +102,7 @@ namespace PreilluminateReticles {
           }
         }
 
-        
+        hudShowBrightnesses(brightnesses);
         applyReticleBrightnesses(reticleMesh, brightnesses);
         storeReticleBrightnesses(reticleMesh, brightnesses);
       }
@@ -196,6 +196,13 @@ namespace PreilluminateReticles {
 
     private UsableOptic? getActiveOptic() =>
       CameraSlot.ActiveInstance?.PairedOptic;
+
+    private void hudShowBrightnesses(float[] brightnesses) {
+      brightnessHUDSb.Clear();
+      brightnessHUDSb.Append("Brightness: ");
+      brightnessHUDSb.AppendJoin<float>(", ", brightnesses);
+      PlayerInput.Instance.VehicleHudText.AddAlertMessage(brightnessHUDSb.ToString(), 0.5f);
+    }
 
     public IEnumerator<bool> FindAndIlluminate(GameState gs) {
       swStart();
