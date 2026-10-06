@@ -9,6 +9,8 @@ using GHPC.State;
 using GHPC.Player;
 using GHPC.Camera;
 using GHPC.Utility;
+using GHPC.UI.Hud;
+using System.Text;
 #nullable enable
 
 [assembly: MelonInfo(
@@ -31,7 +33,7 @@ namespace PreilluminateReticles {
     private readonly Dictionary<int, float[]> reticleStates = new();
     private readonly RLType[] handledLightTypes = [RLType.NightIllumination, RLType.Powered];
     private const float ILLUM_OFF_THRESHOLD = 0.0001f;
-    private float brightnessStep = 0.1f, nightBrightnessStep = 0.002f;
+    private float brightnessStepScale = 0.0625f;
 
     public override void OnInitializeMelon() {
       LoggerInstance.Msg("Initialized.");
@@ -64,11 +66,12 @@ namespace PreilluminateReticles {
     public override void OnUpdate() {
       base.OnUpdate();
 
+      bool addBrightness;
       float addend;
       if(Input.GetKeyDown(KeyCode.UpArrow))
-        addend = brightnessStep;
+        addBrightness = true;
       else if(Input.GetKeyDown(KeyCode.DownArrow))
-        addend = - brightnessStep;
+        addBrightness = false;
       else
         return;
 
@@ -84,16 +87,24 @@ namespace PreilluminateReticles {
         for(int i = 0; i < brightnesses.Length; i++) {
           if(float.IsNaN(brightnesses[i]))
             continue;
+
+          addend = getBrightnessStep(reticleMesh);
+          if(!addBrightness)
+            addend = -addend;
           brightnesses[i] += addend;
+
           if(brightnesses[i] < ILLUM_OFF_THRESHOLD) {
-            brightnesses[i] = 0;
             //keeps powered reticles on
             if(handledLightTypes[i] == RLType.Powered)
               brightnesses[i] -= addend;
+            else
+              brightnesses[i] = 0;
           }
         }
-        storeReticleBrightnesses(reticleMesh, brightnesses);
+
+        
         applyReticleBrightnesses(reticleMesh, brightnesses);
+        storeReticleBrightnesses(reticleMesh, brightnesses);
       }
     }
 
@@ -116,6 +127,9 @@ namespace PreilluminateReticles {
         }
       }
     }
+
+    private float getBrightnessStep(ReticleMesh rm) =>
+      (CelestialSky.IsCurrentlyDaytime() ? 1f : rm.nightBrightness) * brightnessStepScale;
 
     private ReticleMesh[]? getActiveReticleMeshes() {
       UsableOptic? activeOptic = getActiveOptic();
